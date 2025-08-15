@@ -2,10 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "mlc-llm",
-    platforms: [
-        .iOS(.v15)
-    ],
+    name: "MLCSwift",
     products: [
         .library(
             name: "MLCSwift",
@@ -19,9 +16,11 @@ let package = Package(
             path: "ios/MLCSwift/Sources/ObjC",
             publicHeadersPath: "include",
             cSettings: [
-                .define("DMLC_USE_LOGGING_LIBRARY", to: "1")
+                .define("DMLC_USE_LOGGING_LIBRARY", to: "1"),
+                .define("TVM_USE_LIBBACKTRACE", to: "0")
             ],
             cxxSettings: [
+                .define("TVM_ALWAYS_INLINE", to: "__attribute__((always_inline)) inline"),
                 .headerSearchPath("../../../../3rdparty/tvm/include"),
                 .headerSearchPath("../../../../3rdparty/tvm/ffi/include"),
                 .headerSearchPath("../../../../3rdparty/tvm/3rdparty/dmlc-core/include"),
@@ -30,7 +29,7 @@ let package = Package(
             ],
             linkerSettings: [
                 .unsafeFlags([
-                    "-L\(Package.rootPath)/ios/MLCSwift/lib",
+                    "-L" + Package.rootPath + "/ios/MLCSwift/lib",
                     "-Wl,-all_load",
                     "-lmodel_iphone",
                     "-lmlc_llm",

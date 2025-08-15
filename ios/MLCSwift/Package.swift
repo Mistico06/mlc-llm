@@ -1,6 +1,4 @@
-// swift-tools-version:5.5
-// The swift-tools-version declares the minimum version of Swift required to build this package.
-
+// swift-tools-version:5.7
 import PackageDescription
 
 let package = Package(
@@ -15,19 +13,44 @@ let package = Package(
     targets: [
         .target(
             name: "MLCEngineObjC",
-            path: "Sources/ObjC",
+            path: "ios/MLCSwift/Sources/ObjC",
+            publicHeadersPath: "include",
+            cSettings: [
+                .define("DMLC_USE_LOGGING_LIBRARY", to: "1"),
+                .define("TVM_USE_LIBBACKTRACE", to: "0")
+            ],
             cxxSettings: [
-                .headerSearchPath("../../tvm_home/include"),
-                .headerSearchPath("../../tvm_home/ffi/include"),
-                .headerSearchPath("../../tvm_home/3rdparty/dmlc-core/include"),
-                .headerSearchPath("../../tvm_home/3rdparty/dlpack/include")
+                .define("TVM_ALWAYS_INLINE", to: "__attribute__((always_inline)) inline"),
+                .headerSearchPath("../../../../3rdparty/tvm/include"),
+                .headerSearchPath("../../../../3rdparty/tvm/ffi/include"),
+                .headerSearchPath("../../../../3rdparty/tvm/3rdparty/dmlc-core/include"),
+                .headerSearchPath("../../../../3rdparty/tvm/3rdparty/dlpack/include"),
+                .unsafeFlags(["-std=c++17"])
+            ],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-L" + Package.rootPath + "/ios/MLCSwift/lib",
+                    "-Wl,-all_load",
+                    "-lmodel_iphone",
+                    "-lmlc_llm",
+                    "-ltvm_runtime",
+                    "-ltokenizers_cpp",
+                    "-lsentencepiece",
+                    "-ltokenizers_c",
+                    "-Wl,-noall_load"
+                ])
             ]
         ),
         .target(
             name: "MLCSwift",
             dependencies: ["MLCEngineObjC"],
-            path: "Sources/Swift"
+            path: "ios/MLCSwift/Sources/Swift"
         )
-    ],
-    cxxLanguageStandard: .cxx17
+    ]
 )
+
+#if swift(>=5.7)
+extension Package {
+    static var rootPath: String { #filePath.split(separator: "/").dropLast().joined(separator: "/") }
+}
+#endif
