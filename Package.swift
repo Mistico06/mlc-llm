@@ -17,6 +17,7 @@ let package = Package(
             name: "MLCEngineObjC",
             path: "ios/MLCSwift/Sources/ObjC",
             cxxSettings: [
+                .define("TVM_ALWAYS_INLINE", to: "__attribute__((always_inline)) inline"),
                 .headerSearchPath("../../../../3rdparty/tvm/include"),
                 .headerSearchPath("../../../../3rdparty/tvm/ffi/include"),
                 .headerSearchPath("../../../../3rdparty/tvm/3rdparty/dmlc-core/include"),
