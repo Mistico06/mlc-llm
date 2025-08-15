@@ -1,6 +1,6 @@
 import Foundation
 
-extension MLCENgine {
+extension MLCEngine {
     public func generateTextStream(
         prompt: String,
         maxTokens: Int,
@@ -64,4 +64,5 @@ extension MLCENgine {
         return (0..<vocabSize).map { _ in Double.random(in: -8.0...8.0) }
     }
 }
+
 
