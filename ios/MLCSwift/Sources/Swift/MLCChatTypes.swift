@@ -2,11 +2,11 @@ import Foundation
 
 // MARK: - Core Roles and Messages
 
-public enum ChatRole: String, Codable {
+public enum ChatRole: String, Codable, Sendable {
     case system, user, assistant
 }
 
-public struct ChatMessage: Codable, Identifiable {
+public struct ChatMessage: Codable, Identifiable, Sendable {
     public let id: UUID
     public let role: ChatRole
     public let content: String
@@ -27,9 +27,16 @@ public struct ChatMessage: Codable, Identifiable {
     }
 }
 
+// Convenience initializer to keep call sites terse
+public extension ChatMessage {
+    init(role: ChatRole, content: String) {
+        self.init(id: UUID(), role: role, content: content, timestamp: Date())
+    }
+}
+
 // MARK: - Conversation Model
 
-public struct Conversation: Identifiable, Codable {
+public struct Conversation: Identifiable, Codable, Sendable {
     public let id: UUID
     public var title: String
     public var messages: [ChatMessage]
@@ -58,7 +65,7 @@ public struct Conversation: Identifiable, Codable {
 
 // MARK: - Sampling & Generation Config
 
-public struct SamplingParameters: Codable, Equatable {
+public struct SamplingParameters: Codable, Equatable, Sendable {
     public var temperature: Double
     public var topP: Double
     public var topK: Int
@@ -87,7 +94,7 @@ public struct SamplingParameters: Codable, Equatable {
     }
 }
 
-public struct GenerationConfig: Codable, Equatable {
+public struct GenerationConfig: Codable, Equatable, Sendable {
     public var sampling: SamplingParameters
     public var systemPrompt: String
     public var contextWindow: Int
