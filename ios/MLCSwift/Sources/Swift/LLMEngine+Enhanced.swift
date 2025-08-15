@@ -23,30 +23,19 @@ private extension ChatCompletionRole {
 }
 
 // MARK: - Content extraction helper
-// NOTE: Adjust extractText(from:) to the exact shape of ChatCompletionMessageContent in your codegen.
-// Replace the body with the appropriate case/property access once you confirm the type.
+// IMPORTANT: Replace the body with the exact accessors for your ChatCompletionMessageContent type.
+// This fallback uses reflection to read a `text` property if present.
 private func extractText(from content: ChatCompletionMessageContent) -> String? {
-    // Common patterns you might need (uncomment the one that matches your model):
-    //
-    // 1) Enum with .text(String)
-    // if case let .text(text) = content { return text }
-    //
-    // 2) Struct with a `text` stored property
-    // return content.text
-    //
-    // 3) Wrapper with `parts: [Part]` where Part is an enum with .text(String)
-    // if let parts = content.parts {
-    //     let text = parts.compactMap { part -> String? in
-    //         if case let .text(t) = part { return t }
-    //         return nil
-    //     }.joined()
-    //     return text.isEmpty ? nil : text
-    // }
+    // If your model defines: if case let .text(text) = content { return text }
+    // Or: return content.text
+    // Or: if let parts = content.parts { return parts.compactMap { if case let .text(t) = $0 { t } else { nil } }.joined() }
 
-    // Temporary fallback: attempt to reflect a `text` field for quick unblocking.
     let mirror = Mirror(reflecting: content)
     for child in mirror.children {
         if child.label == "text", let t = child.value as? String {
+            return t.isEmpty ? nil : t
+        }
+        if child.label == "content", let t = child.value as? String {
             return t.isEmpty ? nil : t
         }
     }

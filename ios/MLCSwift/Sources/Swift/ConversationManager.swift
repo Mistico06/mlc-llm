@@ -1,5 +1,5 @@
 import Foundation
-import MLCSwift  // Ensure this matches your package's module name
+import MLCSwift  // Replace with your package module name if different
 
 @MainActor
 public class ConversationManager: ObservableObject {
