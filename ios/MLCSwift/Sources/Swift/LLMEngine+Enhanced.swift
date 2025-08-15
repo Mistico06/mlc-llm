@@ -5,16 +5,28 @@
 //  Enhancements built on top of MLCEngine's OpenAI-compatible streaming API.
 //  - Simple text streaming for a single prompt
 //  - Multi-turn chat streaming with completion signal
-//  - No reliance on tokenize/generate/detokenize methods
+//  - Aggregated convenience wrappers
 //
 
 import Foundation
+
+// MARK: - Role mapping between app types and engine types
+
+private extension ChatCompletionRole {
+    init(from role: ChatRole) {
+        switch role {
+        case .system:    self = .system
+        case .user:      self = .user
+        case .assistant: self = .assistant
+        }
+    }
+}
 
 // MARK: - Convenience helpers on MLCEngine
 
 extension MLCEngine {
     /// Stream tokens for a single-prompt completion by consuming the engine's chat stream.
-    /// Concatenate deltas in the caller if an aggregated result is required.
+    /// The caller can concatenate deltas in the onToken closure.
     public func generateTextStream(
         prompt: String,
         maxTokens: Int,
@@ -26,7 +38,6 @@ extension MLCEngine {
             ChatCompletionMessage(role: .user, content: prompt)
         ]
 
-        // MLCEngine streams OpenAI-style deltas
         let stream = await self.chat.completions.create(
             messages: messages,
             model: nil,
@@ -49,21 +60,27 @@ extension MLCEngine {
         )
 
         for await chunk in stream {
-            if let delta = chunk.choices.first?.delta?.content, !delta.isEmpty {
-                onToken(delta)
+            if let choice = chunk.choices.first {
+                // In many OpenAI-compatible schemas, `delta` is non-optional, `content` is optional.
+                let delta = choice.delta
+                if let content = delta.content, !content.isEmpty {
+                    onToken(content)
+                }
             }
         }
     }
 
     /// Stream tokens for multi-turn chat by consuming the engine's chat stream.
-    /// Calls `onToken(token, false)` as tokens arrive and `onToken("", true)` when complete.
+    /// Calls `onToken(token, false)` for content chunks and `onToken("", true)` once complete.
     public func generateChatCompletion(
         messages: [ChatMessage],
         config: GenerationConfig = GenerationConfig(),
         onToken: @escaping (String, Bool) -> Void
     ) async {
-        // Convert your ChatMessage to engine's ChatCompletionMessage
-        let mlcMessages = messages.map { ChatCompletionMessage(role: $0.role, content: $0.content) }
+        // Map app roles to engine roles
+        let mlcMessages = messages.map {
+            ChatCompletionMessage(role: ChatCompletionRole(from: $0.role), content: $0.content)
+        }
 
         let stream = await self.chat.completions.create(
             messages: mlcMessages,
@@ -88,23 +105,26 @@ extension MLCEngine {
 
         var finished = false
         for await chunk in stream {
-            if let delta = chunk.choices.first?.delta?.content, !delta.isEmpty {
-                onToken(delta, false)
+            if let choice = chunk.choices.first {
+                let delta = choice.delta
+                if let content = delta.content, !content.isEmpty {
+                    onToken(content, false)
+                }
             }
-            // Final usage indicates the stream is complete for this request
+            // When usage is present, the request has finished
             if chunk.usage != nil, !finished {
                 finished = true
                 onToken("", true)
             }
         }
-        // If no explicit "usage" arrived, still finalize once stream ends
+        // In case no explicit usage arrived, finalize on stream end
         if !finished {
             onToken("", true)
         }
     }
 
     /// Aggregate a non-streaming result from a prompt using the streaming API.
-    /// This is a convenience wrapper that returns the full generated text.
+    /// Returns the full generated text as a single string.
     public func generateTextAggregated(
         prompt: String,
         maxTokens: Int,
@@ -124,7 +144,7 @@ extension MLCEngine {
     }
 
     /// Aggregate a non-streaming result for a multi-turn chat using the streaming API.
-    /// Returns the complete generated assistant message as a single string.
+    /// Returns the assistant's complete response as a single string.
     public func generateChatAggregated(
         messages: [ChatMessage],
         config: GenerationConfig = GenerationConfig()
