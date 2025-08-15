@@ -1,68 +1,138 @@
+//
+//  LLMEngine+Enhanced.swift
+//  MLCSwift
+//
+//  Enhancements built on top of MLCEngine's OpenAI-compatible streaming API.
+//  - Simple text streaming for a single prompt
+//  - Multi-turn chat streaming with completion signal
+//  - No reliance on tokenize/generate/detokenize methods
+//
+
 import Foundation
 
+// MARK: - Convenience helpers on MLCEngine
+
 extension MLCEngine {
+    /// Stream tokens for a single-prompt completion by consuming the engine's chat stream.
+    /// Concatenate deltas in the caller if an aggregated result is required.
     public func generateTextStream(
         prompt: String,
         maxTokens: Int,
         temperature: Double,
         topP: Double,
         onToken: @escaping (String) -> Void
-    ) async throws {
-        let inputs = try GPTTokenizer.shared.encode(prompt)
-        _ = try await generate(
-            inputs: inputs,
-            maxTokens: maxTokens,
-            temperature: temperature,
-            topP: topP
-        ) { tokens, _ in
-            if let last = tokens.last {
-                if let tokenText = try? GPTTokenizer.shared.decode([last]) {
-                    onToken(tokenText)
-                }
+    ) async {
+        let messages = [
+            ChatCompletionMessage(role: .user, content: prompt)
+        ]
+
+        // MLCEngine streams OpenAI-style deltas
+        let stream = await self.chat.completions.create(
+            messages: messages,
+            model: nil,
+            frequency_penalty: nil,
+            presence_penalty: nil,
+            logprobs: false,
+            top_logprobs: 0,
+            logit_bias: nil,
+            max_tokens: maxTokens,
+            n: 1,
+            seed: nil,
+            stop: nil,
+            stream: true,
+            stream_options: StreamOptions(include_usage: false),
+            temperature: Float(temperature),
+            top_p: Float(topP),
+            tools: nil,
+            user: nil,
+            response_format: nil
+        )
+
+        for await chunk in stream {
+            if let delta = chunk.choices.first?.delta?.content, !delta.isEmpty {
+                onToken(delta)
             }
         }
     }
-    
+
+    /// Stream tokens for multi-turn chat by consuming the engine's chat stream.
+    /// Calls `onToken(token, false)` as tokens arrive and `onToken("", true)` when complete.
     public func generateChatCompletion(
         messages: [ChatMessage],
         config: GenerationConfig = GenerationConfig(),
         onToken: @escaping (String, Bool) -> Void
-    ) async throws {
-        let tokenizer = GPTTokenizer.shared
-        let contextTokens = try tokenizer.encodeChat(messages)
-        var tokens = contextTokens + [tokenizer.specialTokens["<|assistant|>"] ?? 0]
-        var generatedText = ""
-        for step in 0..<config.sampling.maxTokens {
-            let logits = try await getLogits(for: tokens)
-            var penalized = logits
-            applyPenalties(
-                logits: &penalized,
-                generatedTokens: tokens,
-                frequencyPenalty: config.sampling.frequencyPenalty,
-                presencePenalty: config.sampling.presencePenalty
-            )
-            let nextToken = sampleWithNucleus(
-                logits: penalized,
-                temperature: config.sampling.temperature,
-                topP: config.sampling.topP,
-                topK: config.sampling.topK
-            )
-            tokens.append(nextToken)
-            let tokenText = try tokenizer.decode([nextToken])
-            generatedText += tokenText
-            let isDone = step >= config.sampling.maxTokens - 1
-            onToken(tokenText, isDone)
-            if isDone { break }
-            try await Task.sleep(nanoseconds: UInt64.random(in: 20_000_000...80_000_000))
+    ) async {
+        // Convert your ChatMessage to engine's ChatCompletionMessage
+        let mlcMessages = messages.map { ChatCompletionMessage(role: $0.role, content: $0.content) }
+
+        let stream = await self.chat.completions.create(
+            messages: mlcMessages,
+            model: nil,
+            frequency_penalty: Float(config.sampling.frequencyPenalty),
+            presence_penalty: Float(config.sampling.presencePenalty),
+            logprobs: false,
+            top_logprobs: 0,
+            logit_bias: nil,
+            max_tokens: config.sampling.maxTokens,
+            n: 1,
+            seed: nil,
+            stop: config.sampling.stopTokens.isEmpty ? nil : config.sampling.stopTokens,
+            stream: true,
+            stream_options: StreamOptions(include_usage: false),
+            temperature: Float(config.sampling.temperature),
+            top_p: Float(config.sampling.topP),
+            tools: nil,
+            user: nil,
+            response_format: nil
+        )
+
+        var finished = false
+        for await chunk in stream {
+            if let delta = chunk.choices.first?.delta?.content, !delta.isEmpty {
+                onToken(delta, false)
+            }
+            // Final usage indicates the stream is complete for this request
+            if chunk.usage != nil, !finished {
+                finished = true
+                onToken("", true)
+            }
+        }
+        // If no explicit "usage" arrived, still finalize once stream ends
+        if !finished {
+            onToken("", true)
         }
     }
-    
-    // Placeholder to integrate with your real Tensor inference
-    private func getLogits(for tokens: [Int]) async throws -> [Double] {
-        // Replace with real model inference call.
-        let vocabSize = 32000
-        return (0..<vocabSize).map { _ in Double.random(in: -8.0...8.0) }
+
+    /// Aggregate a non-streaming result from a prompt using the streaming API.
+    /// This is a convenience wrapper that returns the full generated text.
+    public func generateTextAggregated(
+        prompt: String,
+        maxTokens: Int,
+        temperature: Double,
+        topP: Double
+    ) async -> String {
+        var aggregated = ""
+        await generateTextStream(
+            prompt: prompt,
+            maxTokens: maxTokens,
+            temperature: temperature,
+            topP: topP
+        ) { delta in
+            aggregated += delta
+        }
+        return aggregated
+    }
+
+    /// Aggregate a non-streaming result for a multi-turn chat using the streaming API.
+    /// Returns the complete generated assistant message as a single string.
+    public func generateChatAggregated(
+        messages: [ChatMessage],
+        config: GenerationConfig = GenerationConfig()
+    ) async -> String {
+        var aggregated = ""
+        await generateChatCompletion(messages: messages, config: config) { token, _ in
+            aggregated += token
+        }
+        return aggregated
     }
 }
-
-
