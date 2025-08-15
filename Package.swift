@@ -20,7 +20,7 @@ let package = Package(
             publicHeadersPath: "include",
             cxxSettings: [
                 .headerSearchPath("../../../../3rdparty/tvm/include"),
-                .headerSearchPath("../../../../3rdparty/tvm/ffi/include")
+                .headerSearchPath("../../../../3rdparty/tvm/ffi/include"),
                 .headerSearchPath("../../../../3rdparty/tvm/3rdparty/dmlc-core/include"),
                 .headerSearchPath("../../../../3rdparty/tvm/3rdparty/dlpack/include"),
                 .unsafeFlags(["-std=c++17"])
