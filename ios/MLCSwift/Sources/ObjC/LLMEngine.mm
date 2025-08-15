@@ -8,10 +8,8 @@
 
 #include "LLMEngine.h"
 
-//#define TVM_USE_LIBBACKTRACE 0
-//#define DMLC_USE_LOGGING_LIBRARY 1
-
-#include <tvm/runtime/logging.h>
+#define TVM_USE_LIBBACKTRACE 0
+#define DMLC_USE_LOGGING_LIBRARY <tvm/runtime/logging.h>
 #include <tvm/ffi/function.h>
 #include <tvm/ffi/string.h>
 #include <tvm/runtime/module.h>
