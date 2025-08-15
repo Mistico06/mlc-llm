@@ -15,7 +15,7 @@ let package = Package(
     targets: [
         .target(
             name: "MLCEngineObjC",
-            path: "Sources/ObjC",
+            path: "ios/Sources/ObjC",
             cxxSettings: [
                 .headerSearchPath("../../tvm_home/include"),
                 .headerSearchPath("../../tvm_home/ffi/include"),
