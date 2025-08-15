@@ -22,11 +22,42 @@ private extension ChatCompletionRole {
     }
 }
 
+// MARK: - Content extraction helper
+// NOTE: Adjust extractText(from:) to the exact shape of ChatCompletionMessageContent in your codegen.
+// Replace the body with the appropriate case/property access once you confirm the type.
+private func extractText(from content: ChatCompletionMessageContent) -> String? {
+    // Common patterns you might need (uncomment the one that matches your model):
+    //
+    // 1) Enum with .text(String)
+    // if case let .text(text) = content { return text }
+    //
+    // 2) Struct with a `text` stored property
+    // return content.text
+    //
+    // 3) Wrapper with `parts: [Part]` where Part is an enum with .text(String)
+    // if let parts = content.parts {
+    //     let text = parts.compactMap { part -> String? in
+    //         if case let .text(t) = part { return t }
+    //         return nil
+    //     }.joined()
+    //     return text.isEmpty ? nil : text
+    // }
+
+    // Temporary fallback: attempt to reflect a `text` field for quick unblocking.
+    let mirror = Mirror(reflecting: content)
+    for child in mirror.children {
+        if child.label == "text", let t = child.value as? String {
+            return t.isEmpty ? nil : t
+        }
+    }
+    return nil
+}
+
 // MARK: - Convenience helpers on MLCEngine
 
 extension MLCEngine {
     /// Stream tokens for a single-prompt completion by consuming the engine's chat stream.
-    /// The caller can concatenate deltas in the onToken closure.
+    /// The caller can concatenate text deltas in the onToken closure.
     public func generateTextStream(
         prompt: String,
         maxTokens: Int,
@@ -61,17 +92,16 @@ extension MLCEngine {
 
         for await chunk in stream {
             if let choice = chunk.choices.first {
-                // In many OpenAI-compatible schemas, `delta` is non-optional, `content` is optional.
                 let delta = choice.delta
-                if let content = delta.content, !content.isEmpty {
-                    onToken(content)
+                if let c = delta.content, let text = extractText(from: c), !text.isEmpty {
+                    onToken(text)
                 }
             }
         }
     }
 
     /// Stream tokens for multi-turn chat by consuming the engine's chat stream.
-    /// Calls `onToken(token, false)` for content chunks and `onToken("", true)` once complete.
+    /// Calls `onToken(token, false)` for text chunks and `onToken("", true)` once complete.
     public func generateChatCompletion(
         messages: [ChatMessage],
         config: GenerationConfig = GenerationConfig(),
@@ -107,24 +137,21 @@ extension MLCEngine {
         for await chunk in stream {
             if let choice = chunk.choices.first {
                 let delta = choice.delta
-                if let content = delta.content, !content.isEmpty {
-                    onToken(content, false)
+                if let c = delta.content, let text = extractText(from: c), !text.isEmpty {
+                    onToken(text, false)
                 }
             }
-            // When usage is present, the request has finished
             if chunk.usage != nil, !finished {
                 finished = true
                 onToken("", true)
             }
         }
-        // In case no explicit usage arrived, finalize on stream end
         if !finished {
             onToken("", true)
         }
     }
 
     /// Aggregate a non-streaming result from a prompt using the streaming API.
-    /// Returns the full generated text as a single string.
     public func generateTextAggregated(
         prompt: String,
         maxTokens: Int,
@@ -144,7 +171,6 @@ extension MLCEngine {
     }
 
     /// Aggregate a non-streaming result for a multi-turn chat using the streaming API.
-    /// Returns the assistant's complete response as a single string.
     public func generateChatAggregated(
         messages: [ChatMessage],
         config: GenerationConfig = GenerationConfig()
