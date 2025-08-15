@@ -26,7 +26,7 @@ let package = Package(
         .target(
             name: "MLCSwift",
             dependencies: ["MLCEngineObjC"],
-            path: "ios/Sources/Swift"
+            path: "ios/MLCSwift/Sources/Swift"
         )
     ],
     cxxLanguageStandard: .cxx17
