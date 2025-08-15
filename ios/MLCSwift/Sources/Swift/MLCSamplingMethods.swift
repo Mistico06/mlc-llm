@@ -1,6 +1,6 @@
 import Foundation
 
-extension LLMEngine {
+extension MLCEngine {
     public func sampleWithNucleus(
         logits: [Double],
         temperature: Double,
@@ -47,3 +47,4 @@ extension LLMEngine {
         }
     }
 }
+
