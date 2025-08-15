@@ -18,6 +18,9 @@ let package = Package(
             name: "MLCEngineObjC",
             path: "ios/MLCSwift/Sources/ObjC",
             publicHeadersPath: "include",
+            cSettings: [
+                .define("DMLC_USE_LOGGING_LIBRARY", to: "1")
+            ],
             cxxSettings: [
                 .headerSearchPath("../../../../3rdparty/tvm/include"),
                 .headerSearchPath("../../../../3rdparty/tvm/ffi/include"),
