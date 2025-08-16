@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-@main
 struct MLCChatApp: App {
     @StateObject private var appState = AppState()
 
