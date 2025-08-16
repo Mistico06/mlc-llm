@@ -61,7 +61,6 @@ class AppState: ObservableObject {
 }
 
 
-@main
 struct MLCEngineExampleApp: App {
     private let appState = AppState()
 
