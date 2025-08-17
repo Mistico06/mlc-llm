@@ -1,10 +1,11 @@
 // swift-tools-version:5.5
-// The swift-tools-version declares the minimum version of Swift required to build this package.
-
 import PackageDescription
 
 let package = Package(
     name: "MLCSwift",
+    platforms: [
+        .iOS(.v17)
+    ],
     products: [
         .library(
             name: "MLCSwift",
@@ -21,13 +22,23 @@ let package = Package(
                 .headerSearchPath("../../../../3rdparty/tvm/include"),
                 .headerSearchPath("../../../../3rdparty/tvm/ffi/include"),
                 .headerSearchPath("../../../../3rdparty/tvm/3rdparty/dmlc-core/include"),
-                .headerSearchPath("../../../../3rdparty/tvm/3rdparty/dlpack/include"),
+                .headerSearchPath("../../../../3rdparty/tvm/3rdparty/dlpack/include")
             ]
         ),
         .target(
             name: "MLCSwift",
             dependencies: ["MLCEngineObjC"],
-            path: "ios/MLCSwift/Sources/Swift"
+            path: "ios/MLCSwift/Sources/Swift",
+            // Exclude demo apps: MLCChat and MLCEngineExample
+            exclude: [
+                // Whole folders (preferred if they exist)
+                "MLCChat",
+                "MLCEngineExample",
+
+                // Common demo entry-point files (in case they’re at top-level)
+                "MLCChatApp.swift",
+                "ContentView.swift"
+            ]
         )
     ],
     cxxLanguageStandard: .cxx17
